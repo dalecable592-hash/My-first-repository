@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HTML to Text</title>
+  <style>
+    :root {
+      --bg: #f6f7f9; --panel: #ffffff; --text: #1c1f24; --muted: #646b75;
+      --border: #d9dde3; --accent: #2f6fde; --accent-text: #ffffff; --drop: #eef3fd;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #15171b; --panel: #1e2126; --text: #e6e8eb; --muted: #9aa1ab;
+        --border: #343840; --accent: #5b8ff0; --accent-text: #0d1117; --drop: #1d2636;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    main { max-width: 900px; margin: 0 auto; padding: 32px 16px; }
+    h1 { font-size: 1.6rem; margin: 0 0 4px; }
+    p.sub { color: var(--muted); margin: 0 0 24px; }
+    .drop {
+      display: block; border: 2px dashed var(--border); border-radius: 12px;
+      background: var(--panel); padding: 32px 16px; text-align: center; cursor: pointer;
+      transition: background .15s, border-color .15s;
+    }
+    .drop.over { background: var(--drop); border-color: var(--accent); }
+    .drop strong { color: var(--accent); }
+    .drop input { display: none; }
+    .bar {
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+      justify-content: space-between; margin: 20px 0 8px;
+    }
+    .file { color: var(--muted); font-size: .9rem; overflow-wrap: anywhere; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    button {
+      font: inherit; padding: 8px 14px; border-radius: 8px; cursor: pointer;
+      border: 1px solid var(--border); background: var(--panel); color: var(--text);
+    }
+    button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    textarea {
+      width: 100%; min-height: 420px; resize: vertical; padding: 12px;
+      border: 1px solid var(--border); border-radius: 10px;
+      background: var(--panel); color: var(--text);
+      font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .status { min-height: 1.5em; color: var(--muted); font-size: .9rem; margin-top: 6px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>HTML to Text</h1>
+  <p class="sub">Upload an HTML file to see its source code as plain text you can copy and paste.</p>
+
+  <label class="drop" id="drop">
+    <input type="file" id="fileInput" accept=".html,.htm,text/html">
+    <div><strong>Choose a file</strong> or drag it here</div>
+    <div class="file">.html or .htm</div>
+  </label>
+
+  <div class="bar">
+    <span class="file" id="fileName">No file loaded</span>
+    <div class="actions">
+      <button class="primary" id="copyBtn" disabled>Copy</button>
+      <button id="downloadBtn" disabled>Download .txt</button>
+      <button id="clearBtn" disabled>Clear</button>
+    </div>
+  </div>
+
+  <textarea id="output" placeholder="The file's code will appear here…" spellcheck="false"></textarea>
+  <div class="status" id="status" aria-live="polite"></div>
+</main>
+
+<script>
+  const drop = document.getElementById('drop');
+  const fileInput = document.getElementById('fileInput');
+  const output = document.getElementById('output');
+  const fileName = document.getElementById('fileName');
+  const status = document.getElementById('status');
+  const copyBtn = document.getElementById('copyBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  let currentName = 'output';
+
+  function setButtons() {
+    const has = output.value.length > 0;
+    copyBtn.disabled = downloadBtn.disabled = clearBtn.disabled = !has;
+  }
+
+  function loadFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      output.value = reader.result;
+      currentName = file.name.replace(/\.[^.]+$/, '') || 'output';
+      fileName.textContent = `${file.name} · ${output.value.split('\n').length} lines`;
+      status.textContent = '';
+      setButtons();
+    };
+    reader.onerror = () => { status.textContent = 'Could not read that file.'; };
+    reader.readAsText(file);
+  }
+
+  fileInput.addEventListener('change', () => loadFile(fileInput.files[0]));
+
+  ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.add('over');
+  }));
+  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.remove('over');
+  }));
+  drop.addEventListener('drop', e => loadFile(e.dataTransfer.files[0]));
+
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(output.value);
+    } catch {
+      output.select();
+      document.execCommand('copy');
+    }
+    status.textContent = 'Copied to clipboard.';
+  });
+
+  downloadBtn.addEventListener('click', () => {
+    const blob = new Blob([output.value], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = currentName + '.txt';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  clearBtn.addEventListener('click', () => {
+    output.value = ''; fileInput.value = '';
+    fileName.textContent = 'No file loaded'; status.textContent = '';
+    setButtons();
+  });
+
+  output.addEventListener('input', setButtons);
+</script>
+</body>
+</html>
