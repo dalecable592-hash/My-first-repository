@@ -1,0 +1,21 @@
+{
+  "name": "html-to-text",
+  "version": "1.0.0",
+  "description": "Upload an HTML file, get its code as copyable text, with a saved history",
+  "scripts": {
+    "dev": "node test/dev-server.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dalecable592-hash/My-first-repository.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dalecable592-hash/My-first-repository/issues"
+  },
+  "homepage": "https://github.com/dalecable592-hash/My-first-repository#readme",
+  "dependencies": {
+    "@netlify/blobs": "^11.1.11"
+  },
+  "private": true,
+  "type": "module"
+}

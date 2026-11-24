@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HTML to Text</title>
+  <style>
+    :root {
+      --bg: #f6f7f9; --panel: #ffffff; --text: #1c1f24; --muted: #646b75;
+      --border: #d9dde3; --accent: #2f6fde; --accent-text: #ffffff; --drop: #eef3fd;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #15171b; --panel: #1e2126; --text: #e6e8eb; --muted: #9aa1ab;
+        --border: #343840; --accent: #5b8ff0; --accent-text: #0d1117; --drop: #1d2636;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    main { max-width: 900px; margin: 0 auto; padding: 32px 16px; }
+    h1 { font-size: 1.6rem; margin: 0 0 4px; }
+    p.sub { color: var(--muted); margin: 0 0 24px; }
+    .drop {
+      display: block; border: 2px dashed var(--border); border-radius: 12px;
+      background: var(--panel); padding: 32px 16px; text-align: center; cursor: pointer;
+      transition: background .15s, border-color .15s;
+    }
+    .drop.over { background: var(--drop); border-color: var(--accent); }
+    .drop strong { color: var(--accent); }
+    .drop input { display: none; }
+    .bar {
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+      justify-content: space-between; margin: 20px 0 8px;
+    }
+    .file { color: var(--muted); font-size: .9rem; overflow-wrap: anywhere; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    button {
+      font: inherit; padding: 8px 14px; border-radius: 8px; cursor: pointer;
+      border: 1px solid var(--border); background: var(--panel); color: var(--text);
+    }
+    button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    textarea {
+      width: 100%; min-height: 420px; resize: vertical; padding: 12px;
+      border: 1px solid var(--border); border-radius: 10px;
+      background: var(--panel); color: var(--text);
+      font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .layout { display: grid; grid-template-columns: 1fr 260px; gap: 20px; align-items: start; }
+    @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } }
+    .history { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+    .history h2 { font-size: 1rem; margin: 0 0 8px; display: flex; justify-content: space-between; align-items: center; }
+    .history ul { list-style: none; margin: 0; padding: 0; max-height: 520px; overflow-y: auto; }
+    .history li { display: flex; gap: 6px; align-items: center; border-top: 1px solid var(--border); padding: 6px 0; }
+    .history li:first-child { border-top: 0; }
+    .history .open { flex: 1; min-width: 0; text-align: left; border: 0; padding: 4px; background: none; }
+    .history .open:hover { color: var(--accent); }
+    .history .open span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .history .open small { color: var(--muted); }
+    .history .del { padding: 2px 8px; font-size: .85rem; }
+    .empty { color: var(--muted); font-size: .9rem; }
+    .login { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 24px 16px; max-width: 420px; }
+    .login input[type=password] {
+      width: 100%; font: inherit; padding: 8px 10px; margin: 8px 0 12px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--bg); color: var(--text);
+    }
+    .login label.check { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: .9rem; margin-bottom: 12px; }
+    .error { color: #d4483b; font-size: .9rem; min-height: 1.4em; }
+    .linkbtn { border: 0; background: none; color: var(--muted); padding: 0; font-size: .85rem; text-decoration: underline; }
+    [hidden] { display: none !important; }
+    .status { min-height: 1.5em; color: var(--muted); font-size: .9rem; margin-top: 6px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>HTML to Text</h1>
+  <p class="sub">Upload an HTML file to see its source code as plain text you can copy and paste. Every upload is saved to your history, available from any PC.</p>
+
+  <form class="login" id="loginForm" hidden>
+    <strong>Enter your password</strong>
+    <input type="password" id="pwInput" autocomplete="current-password" required>
+    <label class="check"><input type="checkbox" id="rememberPw" checked> Remember on this PC</label>
+    <button class="primary" type="submit">Unlock</button>
+    <div class="error" id="loginError" aria-live="polite"></div>
+  </form>
+
+  <div id="app" hidden>
+  <div class="layout">
+  <section>
+
+  <label class="drop" id="drop">
+    <input type="file" id="fileInput" accept=".html,.htm,text/html">
+    <div><strong>Choose a file</strong> or drag it here</div>
+    <div class="file">.html or .htm</div>
+  </label>
+
+  <div class="bar">
+    <span class="file" id="fileName">No file loaded</span>
+    <div class="actions">
+      <button class="primary" id="copyBtn" disabled>Copy</button>
+      <button id="downloadBtn" disabled>Download .txt</button>
+      <button id="clearBtn" disabled>Clear</button>
+    </div>
+  </div>
+
+  <textarea id="output" placeholder="The file's code will appear here…" spellcheck="false"></textarea>
+  <div class="status" id="status" aria-live="polite"></div>
+  </section>
+
+  <aside class="history">
+    <h2>History <button class="linkbtn" id="refreshBtn" type="button">Refresh</button></h2>
+    <ul id="historyList"></ul>
+    <p class="empty" id="historyEmpty">No saved files yet.</p>
+    <button class="linkbtn" id="logoutBtn" type="button">Log out on this PC</button>
+  </aside>
+  </div>
+  </div>
+</main>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const drop = $('drop'), fileInput = $('fileInput'), output = $('output');
+  const fileName = $('fileName'), status = $('status');
+  const copyBtn = $('copyBtn'), downloadBtn = $('downloadBtn'), clearBtn = $('clearBtn');
+  const loginForm = $('loginForm'), pwInput = $('pwInput'), rememberPw = $('rememberPw'), loginError = $('loginError');
+  const app = $('app'), historyList = $('historyList'), historyEmpty = $('historyEmpty');
+  const PW_KEY = 'html2text-password';
+  let currentName = 'output';
+  let password = null;
+
+  // ---- storage helpers (browser storage can be blocked; never let that break the page)
+  const store = {
+    get(k) { try { return localStorage.getItem(k) || sessionStorage.getItem(k); } catch { return null; } },
+    set(k, v, remember) { try { (remember ? localStorage : sessionStorage).setItem(k, v); } catch {} },
+    clear(k) { try { localStorage.removeItem(k); sessionStorage.removeItem(k); } catch {} },
+  };
+
+  // ---- API
+  async function api(path, options = {}) {
+    const res = await fetch('/api/files' + path, {
+      ...options,
+      headers: { 'content-type': 'application/json', 'x-app-password': password, ...(options.headers || {}) },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const err = new Error(data.error || `Request failed (${res.status})`);
+      err.status = res.status;
+      throw err;
+    }
+    return data;
+  }
+
+  // ---- login
+  function showLogin(message = '') {
+    app.hidden = true; loginForm.hidden = false;
+    loginError.textContent = message; pwInput.value = ''; pwInput.focus();
+  }
+
+  async function unlock(pw, remember) {
+    password = pw;
+    try {
+      await refreshHistory();
+      store.set(PW_KEY, pw, remember);
+      loginForm.hidden = true; app.hidden = false;
+    } catch (e) {
+      password = null; store.clear(PW_KEY);
+      showLogin(e.status === 401 ? 'Wrong password.' : e.message);
+    }
+  }
+
+  loginForm.addEventListener('submit', e => {
+    e.preventDefault();
+    unlock(pwInput.value, rememberPw.checked);
+  });
+
+  $('logoutBtn').addEventListener('click', () => {
+    store.clear(PW_KEY); password = null; clearOutput(); historyList.innerHTML = ''; showLogin();
+  });
+
+  // ---- history
+  const fmtSize = n => n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(1)} MB`;
+  const fmtDate = iso => new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+
+  async function refreshHistory() {
+    const { files } = await api('');
+    historyList.innerHTML = '';
+    historyEmpty.hidden = files.length > 0;
+    for (const f of files) {
+      const li = document.createElement('li');
+      const open = document.createElement('button');
+      open.className = 'open'; open.type = 'button';
+      const title = document.createElement('span'); title.textContent = f.name;
+      const meta = document.createElement('small'); meta.textContent = `${fmtDate(f.savedAt)} · ${fmtSize(f.size)}`;
+      open.append(title, meta);
+      open.addEventListener('click', () => openSaved(f.id));
+      const del = document.createElement('button');
+      del.className = 'del'; del.type = 'button'; del.textContent = '✕';
+      del.title = 'Delete'; del.setAttribute('aria-label', `Delete ${f.name}`);
+      del.addEventListener('click', () => removeSaved(f));
+      li.append(open, del);
+      historyList.append(li);
+    }
+  }
+
+  async function openSaved(id) {
+    status.textContent = 'Loading…';
+    try {
+      const f = await api('/' + encodeURIComponent(id));
+      show(f.name, f.content);
+      status.textContent = `Opened from history (saved ${fmtDate(f.savedAt)}).`;
+    } catch (e) { handleError(e); }
+  }
+
+  async function removeSaved(f) {
+    if (!confirm(`Delete "${f.name}" from history?`)) return;
+    try { await api('/' + encodeURIComponent(f.id), { method: 'DELETE' }); await refreshHistory(); }
+    catch (e) { handleError(e); }
+  }
+
+  function handleError(e) {
+    if (e.status === 401) { store.clear(PW_KEY); showLogin('Password no longer valid.'); }
+    else status.textContent = e.message;
+  }
+
+  // ---- converter
+  function setButtons() {
+    const has = output.value.length > 0;
+    copyBtn.disabled = downloadBtn.disabled = clearBtn.disabled = !has;
+  }
+
+  function show(name, text) {
+    output.value = text;
+    currentName = name.replace(/\.[^.]+$/, '') || 'output';
+    fileName.textContent = `${name} · ${text.split('\n').length} lines`;
+    setButtons();
+  }
+
+  function loadFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      show(file.name, reader.result);
+      status.textContent = 'Saving to history…';
+      try {
+        await api('', { method: 'POST', body: JSON.stringify({ name: file.name, content: reader.result }) });
+        await refreshHistory();
+        status.textContent = 'Saved to history.';
+      } catch (e) { handleError(e); }
+    };
+    reader.onerror = () => { status.textContent = 'Could not read that file.'; };
+    reader.readAsText(file);
+  }
+
+  fileInput.addEventListener('change', () => { loadFile(fileInput.files[0]); fileInput.value = ''; });
+
+  ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.add('over');
+  }));
+  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.remove('over');
+  }));
+  drop.addEventListener('drop', e => loadFile(e.dataTransfer.files[0]));
+
+  copyBtn.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(output.value); }
+    catch { output.select(); document.execCommand('copy'); }
+    status.textContent = 'Copied to clipboard.';
+  });
+
+  downloadBtn.addEventListener('click', () => {
+    const blob = new Blob([output.value], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = currentName + '.txt';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  function clearOutput() {
+    output.value = ''; fileInput.value = '';
+    fileName.textContent = 'No file loaded'; status.textContent = '';
+    setButtons();
+  }
+  clearBtn.addEventListener('click', clearOutput);
+  output.addEventListener('input', setButtons);
+  $('refreshBtn').addEventListener('click', () => refreshHistory().catch(handleError));
+
+  // ---- start
+  const saved = store.get(PW_KEY);
+  if (saved) unlock(saved, !!(() => { try { return localStorage.getItem(PW_KEY); } catch { return null; } })());
+  else showLogin();
+</script>
+</body>
+</html>
